@@ -1,4 +1,4 @@
-(ns computorv1.lexer-test
+(ns lexer-test
   (:require [clojure.test :as t]
             [computorv1.lexer :as lexer]))
 
@@ -37,4 +37,4 @@
                        {:type :number :value 2}]}
              (lexer/tokenize "15 - 42 * X + X^2= 35 / X^2"))))))
 
-(t/run-tests 'computorv1.lexer-test)
+(t/run-tests 'lexer-test)
