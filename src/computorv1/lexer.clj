@@ -1,49 +1,63 @@
 (ns computorv1.lexer)
 
-(def decimal-base 10)
-(def indeterminate \X)
+(defn emit-token
+  [equation-str]
+  (or
+    (when-let [match (re-find #"^\d+" equation-str)]
+      [{:type :number
+        :value (parse-long match)}
+       (.substring equation-str (count match))])
 
-(defn is-number?
-  [c]
-  (not (== (Character/digit c decimal-base) -1)))
+    (when-let [match (re-find #"^\+" equation-str)]
+      [{:type :plus}
+       (.substring equation-str (count match))])
 
-(defn char-to-number
-  [c]
-  (- (int c) 48))
+    (when-let [match (re-find #"^\-" equation-str)]
+      [{:type :minus}
+       (.substring equation-str (count match))])
 
-(defn classify-char
-  [c]
-  (cond
-    (is-number? c) {:type :number
-                    :value (char-to-number c)}
-    (= c indeterminate) {:type :indeterminate}
+    (when-let [match (re-find #"^\/" equation-str)]
+      [{:type :slash}
+       (.substring equation-str (count match))])
 
-    (= c \+) {:type :plus}
-    (= c \-) {:type :minus}
-    (= c \/) {:type :slash}
-    (= c \*) {:type :star}
-    (= c \=) {:type :equals}
-    (= c \^) {:type :caret}
+    (when-let [match (re-find #"^\*" equation-str)]
+      [{:type :star}
+       (.substring equation-str (count match))])
 
-    (= c \space) nil
+    (when-let [match (re-find #"^\=" equation-str)]
+      [{:type :equals}
+       (.substring equation-str (count match))])
 
-    :else {:type :unknown}))
+    (when-let [match (re-find #"^\^" equation-str)]
+      [{:type :caret}
+       (.substring equation-str (count match))])
 
-(defn conj-if-not-empty
-  [tokens token]
-  (if (empty? token)
-    tokens
-    (conj tokens token)))
+    (when-let [match (re-find #"^X" equation-str)]
+      [{:type :indeterminate}
+       (.substring equation-str (count match))])
 
-(defn generate-tokens
-  [state c]
-  (let [token (classify-char c)]
-    (update state :tokens #(conj-if-not-empty % token))))
+    (when-let [match (re-find #"^\ +" equation-str)]
+      [nil
+       (.substring equation-str (count match))])
+
+    (when (seq equation-str)
+      [{:type :unknown}
+       (.substring equation-str 1)])))
+
+(defn cons-if-not-empty
+  [token s]
+  (if-not (empty? token)
+    (cons token s)
+    s))
+
+(defn unfold-equation
+  [equation-str]
+  (if-let [[token new-equation-str] (emit-token equation-str)]
+    (cons-if-not-empty token (lazy-seq (unfold-equation new-equation-str)))
+    nil))
 
 (defn tokenize
   [equation]
-  (let [equation (seq equation)]
-    (->> equation
-         (reduce generate-tokens {:tokens []}))))
-
+  (-> equation
+       (unfold-equation)))
 
