@@ -1,63 +1,65 @@
-(ns computorv1.lexer)
+(ns computorv1.lexer
+  (:require [clojure.string :as str]))
+
+(def token-specs
+  [[#"^\d+"
+    (fn [match]
+      {:type :number
+          :value (parse-long match)})]
+
+   [#"^\+"
+    (fn [_]
+      {:type :plus})]
+   
+   [#"^\-"
+    (fn [_]
+      {:type :minus})]
+
+   [#"^\/"
+    (fn [_]
+      {:type :slash})]
+   
+   [#"^\*"
+    (fn [_]
+      {:type :star})]
+
+   [#"^\="
+    (fn [_]
+      {:type :equals})]
+
+   [#"^\^"
+    (fn [_]
+      {:type :caret})]
+
+   [#"^X"
+    (fn [_]
+      {:type :indeterminate})]])
+
+(defn matching-spec
+  [equation-str]
+  (some (fn [[regex build-token]]
+          (when-let [match (re-find regex equation-str)]
+            [match build-token]))
+        token-specs))
 
 (defn emit-token
   [equation-str]
-  (or
-    (when-let [match (re-find #"^\d+" equation-str)]
-      [{:type :number
-        :value (parse-long match)}
-       (.substring equation-str (count match))])
+  (let [equation-str (str/trim equation-str)]
+    (if-let [[match build-token] (matching-spec equation-str)]
+      [(build-token match)
+       (.substring equation-str (count match))]
 
-    (when-let [match (re-find #"^\+" equation-str)]
-      [{:type :plus}
-       (.substring equation-str (count match))])
+      (when (seq equation-str)
+        [{:type :unknown}
+         (.substring equation-str 1)]))))
 
-    (when-let [match (re-find #"^\-" equation-str)]
-      [{:type :minus}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^\/" equation-str)]
-      [{:type :slash}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^\*" equation-str)]
-      [{:type :star}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^\=" equation-str)]
-      [{:type :equals}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^\^" equation-str)]
-      [{:type :caret}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^X" equation-str)]
-      [{:type :indeterminate}
-       (.substring equation-str (count match))])
-
-    (when-let [match (re-find #"^\ +" equation-str)]
-      [nil
-       (.substring equation-str (count match))])
-
-    (when (seq equation-str)
-      [{:type :unknown}
-       (.substring equation-str 1)])))
-
-(defn cons-if-not-empty
-  [token s]
-  (if-not (empty? token)
-    (cons token s)
-    s))
-
-(defn unfold-equation
+(defn token-seq
   [equation-str]
   (if-let [[token new-equation-str] (emit-token equation-str)]
-    (cons-if-not-empty token (lazy-seq (unfold-equation new-equation-str)))
+    (cons token (lazy-seq (token-seq new-equation-str)))
     nil))
 
 (defn tokenize
   [equation]
-  (-> equation
-       (unfold-equation)))
+  (token-seq equation))
 
